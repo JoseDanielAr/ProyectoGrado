@@ -1,0 +1,294 @@
+================================================================================
+  CONTEXTO TÉCNICO DEL PROYECTO — DIARIO DE EJECUCIÓN
+  Aplicación móvil educativa para insulinoterapia (AppDiabetes / «Aprender Jugando»)
+================================================================================
+
+Esta sección documenta cómo se lleva a cabo el proyecto en la práctica: decisiones
+técnicas, herramientas empleadas, flujos de trabajo y resultados intermedios.
+Constituye el «diario técnico» que respalda el producto final y permite
+comprender su proceso de ejecución de forma ordenada y trazable.
+
+El producto es una aplicación móvil educativa orientada al apoyo en la
+enseñanza de la insulinoterapia en personas con diabetes mellitus. No sustituye
+la consulta médica ni calcula dosis terapéuticas; su propósito es ofrecer
+contenido estructurado, microaprendizaje, gamificación ligera y seguimiento del
+progreso formativo, en línea con un enfoque de educación en autocuidado (DSMES,
+por sus siglas en inglés: Diabetes Self-Management Education and Support).
+
+
+--------------------------------------------------------------------------------
+1. DESCRIPCIÓN TÉCNICA DEL PROCESO (VISIÓN GENERAL)
+--------------------------------------------------------------------------------
+
+El desarrollo se guió por principios de modularidad en la interfaz (componentes
+reutilizables), separación entre presentación y lógica de datos, almacenamiento
+local prioritario para el progreso del usuario y experiencia de usuario (UX)
+accesible en dispositivos móviles. La elección de un stack multiplataforma
+permite mantener una única base de código para Android e iOS, reduciendo costos
+de mantenimiento y facilitando iteraciones rápidas durante el grado.
+
+En términos simples: el «frontend» es la app que ve el usuario; la «lógica de
+negocio» incluye reglas de desbloqueo de módulos, puntuación y preferencias; el
+«almacenamiento local» guarda el estado del aprendizaje en el teléfono mediante
+una base de datos embebida (SQLite), lo que favorece un enfoque offline-first
+para el contenido educativo una vez cargado.
+
+
+--------------------------------------------------------------------------------
+2. PASO A PASO DE LA CONSTRUCCIÓN, IMPLEMENTACIÓN Y DISEÑO
+--------------------------------------------------------------------------------
+
+2.1 Levantamiento de requisitos y marco normativo
+
+  - Se partió de un documento de especificación de requisitos (SRS) que define
+    funciones del producto, límites éticos y legales (por ejemplo, tratamiento
+    de datos personales en el marco colombiano) y criterios de aceptación del
+    MVP (producto mínimo viable).
+  - Se priorizaron requisitos según impacto educativo y factibilidad técnica en
+    el tiempo del proyecto académico.
+
+2.2 Diseño instruccional y contenidos
+
+  - Fases típicas: definición de objetivos de aprendizaje por módulo,
+    secuenciación (microaprendizaje), actividades de refuerzo (por ejemplo,
+    cuestionarios) y narrativa gamificada (rachas, puntajes) sin sustituir
+    criterio clínico.
+  - Los materiales textuales y multimedia se preparan para integrarse en
+    pantallas modulares; las pruebas piloto con usuarios permiten ajustar
+    claridad, tiempos de lectura y flujos de navegación.
+
+2.3 Arquitectura lógica del código (estructura implementada)
+
+  El repositorio se organiza de forma alineada con Expo Router y React Native:
+
+  - Carpeta `app/`: rutas y pantallas basadas en el sistema de archivos (file-
+    system routing). Incluye el layout raíz, grupos de rutas como `(tabs)` para
+    la navegación por pestañas (por ejemplo Inicio y Explore), pantallas de
+    ajustes y pantallas de experimentación o prueba técnica (`prueba-*.tsx`)
+    usadas durante el desarrollo para validar motores de juego, texto, imágenes
+    o integración con la base de datos.
+  - Carpeta `components/`: componentes de interfaz reutilizables (patrón de
+    componentes declarativos propio de React).
+  - Carpeta `lib/`: lógica de aplicación no ligada a una sola pantalla; destaca
+    el subsistema de base de datos (`lib/db/`) con inicialización de SQLite,
+    esquema versionado, semillas idempotentes y repositorios (por ejemplo
+    usuario).
+  - Carpeta `assets/`: recursos estáticos (imágenes, esquemas SQL documentados,
+    textos de apoyo) y el presente archivo de contexto técnico.
+
+  Esta estructura facilita que nuevas pantallas se añadan sin romper la
+  navegación global y que la persistencia quede centralizada en pocos módulos.
+
+2.4 Capa de datos local (SQLite)
+
+  - Se define un esquema relacional que modela usuario, módulos, clases,
+    cuestionarios (quiz), estados de avance y tablas intermedias usuario-módulo,
+    usuario-clase y usuario-quiz, con claves foráneas y eliminación en cascada
+    donde aplica.
+  - La inicialización controla la versión del esquema (`PRAGMA user_version`) y
+    aplica migraciones incrementales cuando el proyecto evoluciona.
+  - Las semillas (datos iniciales) se ejecutan de forma idempotente para pruebas
+    de progreso sin duplicar registros de forma inconsistente.
+
+2.5 Integración progresiva
+
+  - Primero: navegación estable y temas visuales (claro/oscuro).
+  - Después: persistencia y pantallas de verificación (`prueba-db`, etc.).
+  - Finalmente: consolidación de flujos educativos y retirada o unificación de
+    pantallas de prueba según el alcance del entregable.
+
+
+--------------------------------------------------------------------------------
+3. ARQUITECTURA DEL SISTEMA Y DIAGRAMAS UML
+--------------------------------------------------------------------------------
+
+3.1 Visión lógica en capas
+
+  De forma simplificada, el sistema puede describirse en capas:
+
+  - Capa de presentación: componentes React Native, estilos, íconos, feedback
+    háptico y navegación (tabs, modales).
+  - Capa de aplicación / casos de uso: orquestación de pantallas, lectura y
+    escritura de progreso, reglas de gamificación.
+  - Capa de datos: SQLite embebido en el dispositivo, acceso a través de APIs
+    asíncronas de Expo SQLite.
+
+  No hay, en el alcance actual descrito en la documentación del producto, un
+  backend propio obligatorio en servidor: el enfoque es aplicación autónoma con
+  datos locales; las actualizaciones de contenido pueden distribuirse con nuevas
+  versiones de la app.
+
+3.2 Diagramas UML y esquemas (referencia a anexos)
+
+  Para una representación visual rigurosa se elaboraron o se prevén los
+  siguientes artefactos (las versiones finales en imagen o fuente editable deben
+  incorporarse en los Anexos del documento de grado):
+
+  - Diagrama de casos de uso: actores (paciente, cuidador, validador clínico en
+    evaluación de contenido) y casos como «completar módulo», «responder quiz»,
+    «revisar progreso», «gestionar consentimiento».
+  - Diagrama de clases (dominio de datos): entidades Usuario, Modulo, Clase,
+    Quiz, Estado y relaciones N:M modeladas mediante tablas intermedias.
+  - Diagrama de componentes / despliegue: app Expo sobre dispositivo móvil,
+    motor SQLite local, módulos nativos de Expo (sonido, imágenes, etc.).
+  - Diagramas de secuencia (opcional pero recomendable): flujo «abrir módulo →
+    registrar avance → actualizar puntuación».
+
+  Nota para el lector: los diagramas completos deben consultarse en la sección
+  de Anexos del informe final; aquí solo se describe su propósito y relación
+  con el código.
+
+
+--------------------------------------------------------------------------------
+4. TECNOLOGÍAS Y HERRAMIENTAS EMPLEADAS
+--------------------------------------------------------------------------------
+
+  Lenguajes y runtime
+  - TypeScript: tipado estático sobre JavaScript para reducir errores en
+    refactorizaciones y contratos de datos.
+  - JavaScript (ecosistema Node) para scripts de proyecto y herramientas CLI.
+
+  Framework móvil y navegación
+  - React Native: interfaz nativa mediante el puente de React.
+  - Expo SDK (~54): simplifica compilación, plugins y uso de APIs nativas
+    homogéneas.
+  - Expo Router: enrutamiento basado en archivos y layouts anidados.
+
+  Persistencia
+  - expo-sqlite: SQLite embebido; adecuado para datos estructurados de progreso
+    y configuración sin depender de conexión permanente.
+
+  Multimedia e interacción
+  - expo-av: audio/video para contenidos educativos.
+  - expo-haptics: retroalimentación táctil en interacciones clave.
+  - react-native-reanimated / gesture-handler: animaciones y gestos fluidos.
+
+  Calidad de código
+  - ESLint con configuración Expo: reglas de estilo y buenas prácticas.
+
+  Control de versiones y colaboración
+  - Git (por ejemplo alojado en GitHub u otro forje): ramas por funcionalidad,
+    revisiones y trazabilidad de cambios.
+
+  Diseño UX/UI (según proceso del equipo)
+  - Herramientas como Figma para prototipos y sistemas de diseño (cuando el
+    equipo las adopta formalmente).
+
+  Justificación breve de la elección del stack
+
+  - Expo acelera el ciclo de desarrollo y la prueba en dispositivos reales y
+    emuladores, clave en proyectos académicos con tiempo limitado.
+  - React Native maximiza la reutilización de componentes y la alineación con
+    prácticas modernas de frontend.
+  - SQLite cubre necesidades de progreso offline sin costo de infraestructura
+    de servidor para el MVP educativo.
+
+
+--------------------------------------------------------------------------------
+5. ITERACIONES, PRUEBAS Y VALIDACIONES INTERNAS
+--------------------------------------------------------------------------------
+
+5.1 Ciclos de desarrollo
+
+  - Iteraciones cortas (por ejemplo sprints de una o dos semanas) con entregables
+    demostrables: una pantalla funcional, un flujo de DB completo o una
+    mejora de accesibilidad.
+  - Versiones alfa: pruebas internas del equipo en emuladores y dispositivos
+    físicos; versión beta: prueba con un grupo reducido de usuarios para
+    retroalimentación de usabilidad.
+
+5.2 Validación técnica interna
+
+  - Pruebas manales sistemáticas por lista de verificación (checklist) alineada
+    con requisitos funcionales.
+  - Pruebas de integración ligeras: arranque de app, migración de esquema,
+    inserción/consulta de progreso.
+  - Pruebas unitarias puntuales donde la lógica pura lo permita (por ejemplo
+    parsers o utilidades en `lib/`), con posibilidad de ampliar cobertura.
+  - Pantallas `prueba-*` como bancos de ensayo para aislar fallos antes de
+    integrar en flujos finales.
+
+5.3 Validación educativa y de usabilidad
+
+  - Encuestas o escalas estandarizadas (por ejemplo SUS — System Usability
+    Scale) en pilotos controlados, según diseño metodológico del trabajo de
+    grado.
+  - Revisión de contenido por parte de un validador con formación en salud,
+    cuando el proyecto lo contempla.
+
+
+--------------------------------------------------------------------------------
+6. GESTIÓN DEL PROYECTO
+--------------------------------------------------------------------------------
+
+6.1 Metodología
+
+  - Enfoque ágil inspirado en Scrum o Kanban según el equipo: backlog priorizado,
+    tablero de tareas, ceremonias de planificación y retrospectiva.
+  - Posible híbrido con hitos acadénicos (entregas parciales al director del
+    trabajo de grado) que actúan como «gates» de documentación y demo.
+
+6.2 Roles típicos en un equipo reducido
+
+  - Desarrollador(a) principal de la app.
+  - Diseñador(a) de experiencia / interfaz (puede ser la misma persona).
+  - Asesor(a) académico y, si aplica, validador clínico del contenido.
+
+6.3 Herramientas de seguimiento
+
+  - Tableros tipo Trello, Jira, Azure Boards o incluso hojas de cálculo
+    compartidas para registrar tareas, estado y responsables.
+  - Repositorio Git como fuente única de verdad del código y etiquetas de
+    versión (releases) cuando se estabiliza un entregable.
+
+
+--------------------------------------------------------------------------------
+7. RESULTADOS INTERMEDIOS Y ARTEFACTOS
+--------------------------------------------------------------------------------
+
+  Entre los resultados parciales típicos se cuentan:
+
+  - SRS y matriz de requisitos trazable.
+  - Prototipos de baja/alta fidelidad y guías de estilo.
+  - Esquema de base de datos documentado (`assets/db`, scripts SQL).
+  - Aplicación instalable vía Expo en modo desarrollo o build de preview.
+  - Registro de issues resueltos y decisiones técnicas (este documento forma
+    parte de ese registro narrativo).
+
+
+--------------------------------------------------------------------------------
+8. DESAFÍOS TÉCNICOS Y SOLUCIONES ADOPTADAS (EJEMPLOS REPRESENTATIVOS)
+--------------------------------------------------------------------------------
+
+  Los siguientes ejemplos ilustran problemas frecuentes en apps móviles
+  educativas locales y cómo abordarlos; ajústenlos a los hallazgos reales del
+  proyecto en la versión final del informe:
+
+  - Sincronización entre UI y estado persistente: centralizar lecturas/escrituras
+    en funciones de repositorio y evitar duplicar estado en muchos componentes.
+  - Migraciones de esquema: incrementar `user_version` y aplicar scripts de
+    alteración de tablas de forma controlada para no perder datos de usuarios en
+    prueba.
+  - Rendimiento en dispositivos modestos: lazy loading de imágenes (expo-image),
+    evitar re-renders innecesarios y medir en Android de gama media.
+  - Accesibilidad: contrastes adecuados, tamaños de toque y textos claros para
+    usuarios con baja alfabetización en salud.
+  - Separación «contenido educativo» vs «consejo médico»: textos revisados y
+    disclaimers visibles para cumplir el alcance no clínico del sistema.
+
+
+--------------------------------------------------------------------------------
+9. CIERRE
+--------------------------------------------------------------------------------
+
+Este desarrollo muestra la factibilidad técnica de implementar una aplicación
+móvil educativa sobre insulinoterapia con arquitectura modular, persistencia
+local y un stack moderno basado en Expo y React Native. La documentación del
+proceso —requisitos, diagramas en anexos, decisiones de datos y gestión ágil—
+permite replicar y extender el proyecto (por ejemplo, personalización adaptativa
+o integraciones futuras) sin perder el hilo conductor del trabajo realizado.
+
+================================================================================
+  Fin del documento «contexto» — actualizar fechas, nombres de herramientas y
+  resultados de pilotos con los datos definitivos del informe de grado.
+================================================================================
