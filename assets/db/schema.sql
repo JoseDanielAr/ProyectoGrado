@@ -1,0 +1,80 @@
+-- Source of truth schema for InsulinApp (expo-sqlite)
+-- NOTE: assets/ is read-only at runtime. The actual SQLite file is created in the app's writable storage.
+
+-- Enable foreign keys (REQUIRED in SQLite)
+PRAGMA foreign_keys = ON;
+
+-- Tabla: Estado
+CREATE TABLE IF NOT EXISTS Estado (
+  EstadoID INTEGER PRIMARY KEY AUTOINCREMENT,
+  NombreEstado TEXT NOT NULL UNIQUE
+);
+
+-- Tabla: Usuario
+CREATE TABLE IF NOT EXISTS Usuario (
+  UsuarioID INTEGER PRIMARY KEY AUTOINCREMENT,
+  Racha INTEGER NOT NULL,
+  Puntaje INTEGER NOT NULL,
+  ConfMusica INTEGER NOT NULL,
+  ConfSFX INTEGER NOT NULL
+);
+
+-- Tabla: Modulo
+CREATE TABLE IF NOT EXISTS Modulo (
+  ModuloID INTEGER PRIMARY KEY AUTOINCREMENT
+);
+
+-- Tabla: Quiz (sin EstadoID)
+CREATE TABLE IF NOT EXISTS Quiz (
+  QuizID INTEGER PRIMARY KEY AUTOINCREMENT,
+  ModuloID INTEGER NOT NULL,
+  PuntajeDadoQuiz INTEGER NOT NULL,
+
+  FOREIGN KEY (ModuloID) REFERENCES Modulo(ModuloID) ON DELETE CASCADE
+);
+
+-- Tabla: Clase (sin EstadoID)
+CREATE TABLE IF NOT EXISTS Clase (
+  ClaseID INTEGER PRIMARY KEY AUTOINCREMENT,
+  ModuloID INTEGER NOT NULL,
+  PuntajeDadoClase INTEGER NOT NULL,
+
+  FOREIGN KEY (ModuloID) REFERENCES Modulo(ModuloID) ON DELETE CASCADE
+);
+
+-- Tabla intermedia: UsuarioModulo
+CREATE TABLE IF NOT EXISTS UsuarioModulo (
+  UsuarioID INTEGER NOT NULL,
+  ModuloID INTEGER NOT NULL,
+  EstadoID INTEGER NOT NULL,
+
+  PRIMARY KEY (UsuarioID, ModuloID),
+  FOREIGN KEY (UsuarioID) REFERENCES Usuario(UsuarioID) ON DELETE CASCADE,
+  FOREIGN KEY (ModuloID) REFERENCES Modulo(ModuloID) ON DELETE CASCADE,
+  FOREIGN KEY (EstadoID) REFERENCES Estado(EstadoID) ON DELETE CASCADE
+);
+
+-- Tabla intermedia: UsuarioClase
+CREATE TABLE IF NOT EXISTS UsuarioClase (
+  UsuarioID INTEGER NOT NULL,
+  ClaseID INTEGER NOT NULL,
+  EstadoID INTEGER NOT NULL,
+
+  PRIMARY KEY (UsuarioID, ClaseID),
+  FOREIGN KEY (UsuarioID) REFERENCES Usuario(UsuarioID) ON DELETE CASCADE,
+  FOREIGN KEY (ClaseID) REFERENCES Clase(ClaseID) ON DELETE CASCADE,
+  FOREIGN KEY (EstadoID) REFERENCES Estado(EstadoID) ON DELETE CASCADE
+);
+
+-- Tabla intermedia: UsuarioQuiz
+CREATE TABLE IF NOT EXISTS UsuarioQuiz (
+  UsuarioID INTEGER NOT NULL,
+  QuizID INTEGER NOT NULL,
+  EstadoID INTEGER NOT NULL,
+  Resultado INTEGER NOT NULL,
+
+  PRIMARY KEY (UsuarioID, QuizID),
+  FOREIGN KEY (UsuarioID) REFERENCES Usuario(UsuarioID) ON DELETE CASCADE,
+  FOREIGN KEY (QuizID) REFERENCES Quiz(QuizID) ON DELETE CASCADE,
+  FOREIGN KEY (EstadoID) REFERENCES Estado(EstadoID) ON DELETE CASCADE
+);
