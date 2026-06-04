@@ -93,7 +93,6 @@ Cada pantalla mapea claves de `imageAssetMap` a rutas `require()`. Las clases en
 - **Menú principal** — puntaje, racha, accesos a Módulos, Repaso, Misiones Diarias y Ajustes.
 - **Misiones diarias** — una misión por día calendario: completar una clase, repasar 10 preguntas o revisar una clase completada. Otorga +100 puntos y racha si el día anterior también se completó.
 - **Ajustes** — sliders de volumen para música y SFX, persistidos en SQLite.
-- **Rutas de desarrollo** (`app/prueba-*`) — sandboxes para probar cada motor de forma aislada. Son artefactos de desarrollo.
 
 <img width="400" height="864,5" alt="menus" src="https://github.com/user-attachments/assets/64205bc2-0794-4191-9fad-2cd0333ddc3c" />
 
