@@ -8,6 +8,7 @@ export interface UsuarioRow {
   Puntaje: number
   ConfMusica: number
   ConfSFX: number
+  clave: string
 }
 
 export async function getActiveUsuario() {
@@ -15,7 +16,7 @@ export async function getActiveUsuario() {
   const db = await getDb()
 
   const row = await db.getFirstAsync<UsuarioRow>(
-    'SELECT UsuarioID, Racha, Puntaje, ConfMusica, ConfSFX FROM Usuario WHERE UsuarioID = ?;',
+    'SELECT UsuarioID, Racha, Puntaje, ConfMusica, ConfSFX, clave FROM Usuario WHERE UsuarioID = ?;',
     [ACTIVE_USER_ID]
   )
 
@@ -23,12 +24,12 @@ export async function getActiveUsuario() {
 
   // Failsafe: si por alguna razón no existe el usuario base, lo creamos.
   await db.runAsync(
-    'INSERT INTO Usuario (UsuarioID, Racha, Puntaje, ConfMusica, ConfSFX) VALUES (?, 0, 0, 0, 0);',
+    "INSERT INTO Usuario (UsuarioID, Racha, Puntaje, ConfMusica, ConfSFX, clave) VALUES (?, 0, 0, 0, 0, 'n/a');",
     [ACTIVE_USER_ID]
   )
 
   const created = await db.getFirstAsync<UsuarioRow>(
-    'SELECT UsuarioID, Racha, Puntaje, ConfMusica, ConfSFX FROM Usuario WHERE UsuarioID = ?;',
+    'SELECT UsuarioID, Racha, Puntaje, ConfMusica, ConfSFX, clave FROM Usuario WHERE UsuarioID = ?;',
     [ACTIVE_USER_ID]
   )
 
@@ -53,7 +54,7 @@ export async function getAllUsuarios() {
   const db = await getDb()
 
   return await db.getAllAsync<UsuarioRow>(
-    'SELECT UsuarioID, Racha, Puntaje, ConfMusica, ConfSFX FROM Usuario ORDER BY UsuarioID ASC;'
+    'SELECT UsuarioID, Racha, Puntaje, ConfMusica, ConfSFX, clave FROM Usuario ORDER BY UsuarioID ASC;'
   )
 }
 

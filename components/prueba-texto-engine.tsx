@@ -1,10 +1,11 @@
 import { Audio } from 'expo-av'
 import { Image } from 'expo-image'
-import TypeWriter from 'react-native-typewriter'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { renderInlineRichText } from '@/components/inline-rich-text'
+import { RichTypewriter } from '@/components/rich-typewriter'
 import { useAudioSettings } from '@/contexts/audio-settings-context'
 
 const WHITE = '#FFFFFF'
@@ -61,7 +62,6 @@ export function PruebaTextoEngine({
     () => mergeScriptAndLegacyCommands(textSource, imageCommands),
     [textSource, imageCommands]
   )
-
   const mascotTalkSfxRef = useRef<Audio.Sound | null>(null)
   const [isMascotTalkSfxReady, setIsMascotTalkSfxReady] = useState(false)
 
@@ -242,17 +242,17 @@ export function PruebaTextoEngine({
             <Text style={styles.textHint}>Toca para continuar</Text>
             <View style={styles.textContent}>
               {isTyping ? (
-                <TypeWriter
-                  key={stepIndex}
-                  style={styles.typeText}
-                  typing={1}
+                <RichTypewriter
+                  key={`text-${stepIndex}`}
+                  text={displayTexts[stepIndex] ?? ''}
+                  typing={true}
                   minDelay={10}
                   maxDelay={22}
-                  onTypingEnd={() => setIsTyping(false)}>
-                  {displayTexts[stepIndex] ?? ''}
-                </TypeWriter>
+                  baseStyle={styles.typeText}
+                  onTypingEnd={() => setIsTyping(false)}
+                />
               ) : (
-                <Text style={styles.typeText}>{displayTexts[stepIndex] ?? ''}</Text>
+                renderInlineRichText({ text: displayTexts[stepIndex] ?? '', baseStyle: styles.typeText })
               )}
             </View>
           </Pressable>

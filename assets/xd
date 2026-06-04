@@ -1,0 +1,373 @@
+DESARROLLO TÉCNICO Y EJECUCIÓN DEL PROYECTO INSULINAPP (APPDIABETES)
+Diario técnico — documentación del proceso de construcción
+
+Esta sección documenta cómo se llevó a cabo el proyecto en la práctica: decisiones técnicas, herramientas, flujos de trabajo, arquitectura, iteraciones y resultados intermedios. Complementa el marco teórico al narrar el “cómo se hizo”, no solo el “sobre qué bases descansa”. El producto final es una aplicación móvil Android (APK) construida con React Native y Expo, con persistencia local SQLite y motores reutilizables de actividad.
+
+
+================================================================================
+1. DESCRIPCIÓN TÉCNICA DEL PROCESO (PASO A PASO)
+================================================================================
+
+El desarrollo siguió una lógica incremental por capas y por módulos funcionales, priorizando primero la infraestructura (datos, navegación, prototipos) y después el contenido formativo y las funciones de retención (repaso, misiones diarias).
+
+FASE 1 — Arranque del proyecto y entorno
+Se inicializó el repositorio con la plantilla Expo (SDK 54), TypeScript en modo estricto y Expo Router para enrutamiento basado en archivos. Se configuró el punto de entrada en `app/_layout.tsx` y la pantalla principal en `app/(tabs)/index.tsx`. Herramientas: Node.js, npm, Expo CLI, editor Cursor/VS Code. Referencia: https://docs.expo.dev/get-started/installation/
+
+FASE 2 — Capa de datos local (SQLite)
+Se definió el esquema relacional en `lib/db/schema.ts` (tablas de catálogo: Estado, Modulo, Clase, Quiz; tablas de progreso: UsuarioModulo, UsuarioClase, UsuarioQuiz; tabla Usuario con puntaje, racha, audio y misiones diarias). Se implementó `lib/db/database.ts` con inicialización idempotente, semilla en `lib/db/seed.ts` y migraciones incrementales por columnas (`ensureUsuarioClaveColumn`, `ensureUsuarioMisionColumns`). Se crearon repositorios: `usuario-repo.ts`, `modulo-repo.ts`, con funciones de completar clase/quiz y política de desbloqueo secuencial (`isModuloUnlocked`, `isClaseUnlocked`). Pantallas de depuración: `app/ver-db.tsx`, `app/prueba-db.tsx`.
+
+FASE 3 — Motores de interacción y pantallas de prueba
+Antes de integrar el currículo completo, se aislaron los formatos de actividad en rutas `app/prueba-*` y componentes en `components/`: `prueba-texto-engine.tsx` (lecciones con typewriter y texto enriquecido), `prueba-test-engine.tsx`, `bounding-box-engine.tsx` (región táctil sobre imagen con coordenadas en píxeles escaladas al layout), `quiz-conjunto-engine.tsx` y parsers en `lib/parse-prueba-test-engine-script.ts` y `lib/parse-quiz-conjunto-script.ts`. Esta fase permitió validar UX, audio (`expo-av`) y retroalimentación sin depender del flujo completo de módulos.
+
+FASE 4 — Módulos formativos y hub de navegación
+Se implementó el hub `app/modulos.tsx` y, por cada itinerario, pantallas hub (`la-diabetes.tsx`, `la-insulinoterapia.tsx`, `modulo-3.tsx`) y pantallas de clase/quiz dedicadas (`la-diabetes-clase-1.tsx` … `modulo-3-quiz-3.tsx`). Cada clase invoca `completeClaseForActiveUser` al finalizar; los quizzes usan `completeQuizForActiveUser`. El tutorial (`tutorial.tsx`, `tutorial-conjunto.tsx`) introduce el flujo con ModuloID 0. Se añadió `lib/catalog/content-catalog.ts` para centralizar títulos y rutas de clases en misiones de repaso.
+
+FASE 5 — Ajustes, audio global y menú
+`app/settings.tsx` persiste volúmenes en SQLite; `contexts/audio-settings-context.tsx` expone música y SFX al resto de la app. El menú principal muestra puntaje y racha, con sincronización de misiones al recuperar foco (`syncDailyMision` en `app/(tabs)/index.tsx`).
+
+FASE 6 — Repaso
+`lib/repaso/repaso-repo.ts` arma el pool de preguntas desde quizzes completados (solo ítems tipo test). `lib/repaso/repaso-picker.ts` evita repeticiones recientes (cooldown). `app/repaso.tsx` y `app/repaso-session.tsx` alojan `RepasoPracticeEngine` con modo racha de aciertos o conteo de 10 preguntas según misión diaria.
+
+FASE 7 — Misiones diarias y gamificación extendida
+`lib/misiones/misiones-repo.ts` genera la misión según progreso (completar clase, repaso o repasar clase vista), persiste `Dia` y valida racha al cambiar de día. `app/misiones.tsx` muestra objetivo, puntaje de misión (100) y estado. La completación enlaza con `modulo-repo` y el motor de repaso.
+
+FASE 8 — Empaquetado Android (APK)
+`expo prebuild` generó el proyecto nativo `android/`. La compilación release (`gradlew assembleRelease`) requirió ruta corta en disco (`C:\InsulinBuild`) por límite de longitud de rutas en Windows con CMake. Se añadió `metro.config.js` para alias `@/` en bundles de producción. Artefacto: `assets/InsulinApp/AppDiabetes-1.0.0-release.apk`.
+
+
+================================================================================
+2. ARQUITECTURA DEL SISTEMA Y DIAGRAMAS UML
+================================================================================
+
+2.1 Arquitectura lógica por capas
+
+La aplicación se organiza en cuatro capas principales:
+
+— Presentación (`app/`, `components/`): pantallas Expo Router, motores visuales, estilos.
+— Dominio / reglas (`lib/db/modulo-repo.ts`, `lib/misiones/`, `lib/repaso/`): completitud, desbloqueo, misiones, selección de preguntas.
+— Acceso a datos (`lib/db/database.ts`, repositorios): SQL local en SQLite.
+— Infraestructura: SQLite embebido y assets estáticos (`assets/`).
+
+Figura 1 — Diagrama de capas (vista lógica). Referencia para elaborar diagrama en draw.io o PlantUML.
+
+```mermaid
+flowchart TB
+  subgraph presentacion [Capa de presentación]
+    APP[app - Pantallas Expo Router]
+    COMP[components - Motores UI]
+    CTX[contexts - AudioSettings]
+  end
+  subgraph dominio [Capa de dominio]
+    MOD[modulo-repo]
+    MIS[misiones-repo]
+    REP[repaso-repo + picker]
+    PAR[parsers de guiones]
+  end
+  subgraph datos [Capa de acceso a datos]
+    DB[database.ts + schema]
+    USR[usuario-repo]
+  end
+  subgraph infra [Infraestructura]
+    SQL[(SQLite local)]
+  end
+  APP --> COMP
+  APP --> CTX
+  APP --> dominio
+  dominio --> datos
+  DB --> SQL
+  USR --> DB
+  MOD --> DB
+```
+
+2.2 Diagrama de casos de uso (nivel usuario)
+
+Actores: Usuario (aprendiz). Casos de uso principales implementados:
+
+— Consultar puntaje y racha en menú.
+— Recorrer módulos y clases con desbloqueo secuencial.
+— Realizar quizzes (test y bounding box).
+— Practicar repaso.
+— Consultar y cumplir misión diaria.
+— Ajustar audio.
+
+Figura 2 — Casos de uso.
+
+```mermaid
+flowchart TB
+  U((Usuario))
+  U --> UC1[Navegar módulos y clases]
+  U --> UC2[Completar quiz]
+  U --> UC3[Repaso de preguntas]
+  U --> UC4[Misión diaria]
+  U --> UC5[Ajustar música y SFX]
+  U --> UC6[Ver puntaje y racha]
+```
+
+2.3 Diagrama de clases (simplificado — núcleo de persistencia)
+
+Representa las entidades del modelo relacional y relaciones FK (cardinalidades principales).
+
+Figura 3 — Diagrama de clases del dominio de datos.
+
+```mermaid
+classDiagram
+  class Usuario {
+    +int UsuarioID
+    +int Racha
+    +int Puntaje
+    +int ConfMusica
+    +int ConfSFX
+    +string clave
+    +string Dia
+    +string MisionTipo
+    +int MisionCompletada
+    +int MisionClaseId
+  }
+  class Modulo {
+    +int ModuloID
+  }
+  class Clase {
+    +int ClaseID
+    +int ModuloID
+    +int PuntajeDadoClase
+  }
+  class Quiz {
+    +int QuizID
+    +int ModuloID
+    +int PuntajeDadoQuiz
+  }
+  class Estado {
+    +int EstadoID
+    +string NombreEstado
+  }
+  class UsuarioModulo {
+    +int UsuarioID
+    +int ModuloID
+    +int EstadoID
+  }
+  class UsuarioClase {
+    +int UsuarioID
+    +int ClaseID
+    +int EstadoID
+  }
+  class UsuarioQuiz {
+    +int UsuarioID
+    +int QuizID
+    +int EstadoID
+    +int Resultado
+  }
+  Modulo "1" --> "*" Clase
+  Modulo "1" --> "*" Quiz
+  Usuario "1" --> "*" UsuarioModulo
+  Modulo "1" --> "*" UsuarioModulo
+  Estado "1" --> "*" UsuarioModulo
+  Usuario "1" --> "*" UsuarioClase
+  Clase "1" --> "*" UsuarioClase
+  Usuario "1" --> "*" UsuarioQuiz
+  Quiz "1" --> "*" UsuarioQuiz
+```
+
+2.4 Diagrama de secuencia — Completar una clase
+
+Figura 4 — Secuencia al finalizar lección.
+
+```mermaid
+sequenceDiagram
+  participant UI as Pantalla Clase
+  participant ENG as PruebaTextoEngine
+  participant MOD as modulo-repo
+  participant MIS as misiones-repo
+  participant DB as SQLite
+  UI->>ENG: Usuario termina lección
+  ENG->>MOD: completeClaseForActiveUser(claseId)
+  MOD->>DB: UPDATE UsuarioClase, Puntaje, UsuarioModulo
+  MOD->>MIS: tryCompleteMisionAfterClase(claseId)
+  MIS->>DB: UPDATE MisionCompletada / Racha si aplica
+  MOD-->>UI: resultado completitud
+```
+
+2.5 Diagrama de componentes (módulos de código)
+
+Figura 5 — Módulos funcionales del repositorio.
+
+```mermaid
+flowchart TB
+  subgraph app_routes [app/]
+    TABS[tabs - Menú]
+    MODS[modulos/ - Clases y quizzes]
+    REP_R[repaso / repaso-session]
+    MIS_R[misiones]
+    SET[settings]
+  end
+  subgraph lib_modules [lib/]
+    DBL[db/]
+    MISION[misiones/]
+    REPASO[repaso/]
+    CAT[catalog/]
+    PARS[parse-*-script.ts]
+  end
+  subgraph comp [components/]
+    PTE[prueba-texto-engine]
+    QCE[quiz-conjunto-engine]
+    BBE[bounding-box-engine]
+    RPE[repaso-practice-engine]
+  end
+  MODS --> PTE
+  MODS --> QCE
+  REP_R --> RPE
+  MODS --> DBL
+  MIS_R --> MISION
+```
+
+Nota para el documento final: las Figuras 1 a 5 pueden exportarse desde un visor Mermaid (https://mermaid.live/) o redibujarse en Word/Lucidchart manteniendo la misma numeración y pie de figura.
+
+
+================================================================================
+3. TECNOLOGÍAS Y HERRAMIENTAS EMPLEADAS (Y JUSTIFICACIÓN)
+================================================================================
+
+| Tecnología | Uso en el proyecto | Justificación breve |
+|------------|-------------------|---------------------|
+| React Native 0.81 | UI nativa compartida | Ecosistema maduro, comunidad, acceso a APIs del dispositivo. https://reactnative.dev/ |
+| Expo SDK 54 | Toolchain, módulos nativos, prebuild | Acelera desarrollo y empaquetado; unifica plugins (SQLite, AV, imagen). https://docs.expo.dev/ |
+| TypeScript 5.9 | Tipado en todo el código | Menos errores en repositorios y motores; mejor mantenibilidad. |
+| Expo Router 6 | Rutas en `app/` | Alinea estructura de carpetas con navegación; rutas tipadas. |
+| SQLite (expo-sqlite) | BD embebida offline | Estándar móvil, transacciones, sin servidor en uso diario. |
+| Metro | Bundler JS | Requerido por React Native; personalizado para alias `@/`. |
+| expo-av, expo-image | Audio e imágenes | APIs probadas en Expo; caché de imágenes y reproducción estable. |
+| React Navigation 7 | Stack/tabs bajo Router | Estándar de navegación en RN. |
+| Reanimated + Gesture Handler | Animaciones y gestos | Rendimiento en interacciones táctiles. |
+| Gradle / Android SDK | APK release | Distribución instalable en Android. |
+| ESLint (eslint-config-expo) | Calidad de código | Reglas alineadas con Expo. |
+| Cursor / VS Code | IDE | Edición, asistencia IA, depuración integrada. |
+| Git (recomendado) | Control de versiones | Trazabilidad de iteraciones (si el equipo lo usa en el repositorio). |
+
+Entorno de desarrollo: Windows 10/11, Node.js LTS, Android Studio (SDK, emulador opcional), JDK 17 para compilaciones Gradle.
+
+
+================================================================================
+4. ITERACIONES, PRUEBAS Y VALIDACIONES INTERNAS
+================================================================================
+
+4.1 Modelo de iteración
+
+El proyecto no siguió Scrum formal con sprints documentados en Jira, sino un modelo incremental híbrido, típico de proyectos de grado con un desarrollador principal:
+
+— Iteración 0 (prototipo): rutas `prueba-*` y motores aislados — versión alfa técnica.
+— Iteración 1: SQLite + menú + módulo tutorial — alfa funcional.
+— Iteración 2: Módulos 1 y 2 (La Diabetes, Insulinoterapia) + quizzes — beta de contenido parcial.
+— Iteración 3: Módulo 3 + repaso — beta ampliada.
+— Iteración 4: Misiones diarias y racha — release candidata.
+— Iteración 5: APK, metro.config, ajustes de build — versión 1.0.0 entregable.
+
+4.2 Métodos de validación técnica
+
+— Pruebas manuales en dispositivo/emulador: flujos completos de clase, quiz, repaso y misión.
+— Pantallas de diagnóstico: `ver-db`, `prueba-db` para inspeccionar filas SQLite.
+— Comprobación TypeScript: `npx tsc --noEmit` sin errores de tipos.
+— Lint: `npm run lint` (Expo ESLint).
+— Validación de parsers: guiones `QUIZ_SCRIPT` y scripts de clase contra `parse-quiz-conjunto-script` y `parse-prueba-test-engine-script`.
+— Prueba de build: `expo export --platform android` y `assembleRelease` hasta obtener APK.
+
+No se implementó una suite automatizada de pruebas unitarias (Jest) en el repositorio actual; la validación fue predominantemente exploratoria y de integración manual, coherente con el alcance y el tamaño del equipo.
+
+4.3 Correcciones relevantes entre iteraciones
+
+— Desbloqueo secuencial: corrección de condiciones en hubs de módulo para no saltar clases pendientes.
+— Bounding box en quiz: modo `embedded` y `autoAdvanceOnAnswer` para no duplicar feedback con el padre.
+— Repaso: exclusión de preguntas bounding box del pool; cooldown de repetición.
+— Build release: `metro.config.js` para resolver `@/`; compilación desde ruta corta en Windows.
+— Misiones: sincronización de día solo al entrar al menú; reset de racha si falló la misión del día anterior.
+
+
+================================================================================
+5. GESTIÓN DEL PROYECTO
+================================================================================
+
+5.1 Metodología
+
+Se adoptó una metodología híbrida incremental, cercana a Kanban personalizado:
+
+— Backlog implícito por funcionalidades (motores → módulos → repaso → misiones → APK).
+— Flujo continuo “por hacer → en progreso → probado → integrado” sin ceremonias Scrum completas (daily, sprint review formal).
+— Entregables parciales demostrables en cada iteración (pantalla de prueba, módulo completo, APK).
+
+Si el documento académico exige nombrar un marco: “desarrollo incremental con entregas funcionales verticales”, compatible con prácticas ágiles sin equipo multidisciplinar fijo.
+
+5.2 Roles
+
+En el contexto típico de proyecto de grado:
+
+— Desarrollador full-stack móvil: implementación, arquitectura y BD local.
+— Director / tutor académico: revisión de avances, validación pedagógica del contenido (fuera del alcance de este diario técnico).
+— Usuario piloto (opcional): pruebas de usabilidad en dispositivo real.
+
+5.3 Herramientas de seguimiento
+
+— Control de código: Git (recomendado para historial de commits por iteración).
+— Documentación auxiliar: archivos en `assets/` (esquema SQLite en `assets/db/Estructura/`, este diario en `assets/xd`).
+— Gestión de tareas: puede documentarse uso de Trello, Notion, Excel o lista de verificación del tutor; el repositorio refleja el estado real del producto más que el tablero.
+
+5.4 Cronograma sugerido para narrativa en memoria (referencia)
+
+| Fase | Entregable técnico |
+|------|-------------------|
+| Mes 1 | Proyecto Expo, SQLite, motores en `prueba-*` |
+| Mes 2 | Módulos 1–2, quizzes, menú y ajustes |
+| Mes 3 | Módulo 3, repaso, misiones diarias |
+| Mes 4 | APK y documentación |
+
+
+================================================================================
+6. DESAFÍOS TÉCNICOS Y SOLUCIONES
+================================================================================
+
+Desafío 1 — Rutas de archivo demasiado largas en Windows al compilar C++
+Síntoma: fallo de ninja/CMake en `expo-modules-core` y `react-native-reanimated` con rutas bajo OneDrive (“Proyecto de Grado”).
+Solución: copiar el proyecto a `C:\InsulinBuild`, `npm install`, `expo prebuild` y `gradlew assembleRelease` desde ruta corta; copiar el APK al repositorio en `assets/InsulinApp/`.
+
+Desafío 2 — Alias `@/` no resueltos en bundle de release
+Síntoma: “Unable to resolve module @/lib/...” en `assembleRelease`.
+Solución: archivo `metro.config.js` con `resolveRequest` personalizado hacia la raíz del proyecto.
+
+Desafío 3 — Lógica de racha y cambio de día calendario
+Síntoma: racha debe persistir solo si se cumplió la misión del día anterior.
+Solución: `syncDailyMision()` al entrar al menú; comparación de `Dia` con fecha local; reset de `Racha` si no se cumplió la misión del día previo.
+
+Desafío 4 — Escalado de bounding box en distintos tamaños de pantalla
+Síntoma: coordenadas del guion en píxeles de imagen original vs. vista en pantalla.
+Solución: `onLayout` en `BoundingBoxEngine`, cálculo de factores de escala y comparación del tap con rectángulo transformado.
+
+
+================================================================================
+7. ESTRUCTURA DEL CÓDIGO (REFERENCIA RÁPIDA)
+================================================================================
+
+AppDiabetes/
+  app/                    Pantallas y rutas (Expo Router)
+    (tabs)/               Menú principal
+    modulos/              Hubs, clases, quizzes por módulo
+    repaso.tsx            Hub repaso
+    repaso-session.tsx    Sesión de preguntas
+    misiones.tsx          Misiones diarias
+    settings.tsx          Ajustes de audio
+    prueba-*              Prototipos y pruebas técnicas
+  components/             Motores UI reutilizables
+  lib/
+    db/                   Esquema, seed, repositorios
+    misiones/             Misiones diarias y racha
+    repaso/               Pool y picker de repaso
+    catalog/              Títulos y rutas de contenido
+  contexts/               Estado global (audio)
+  assets/                 Imágenes, audio, SQL, APK, documentación
+  android/                Proyecto nativo (tras prebuild)
+  metro.config.js         Resolución de alias en build
+
+
+================================================================================
+8. RELACIÓN CON EL MARCO TEÓRICO Y CIERRE
+================================================================================
+
+Este diario técnico materializa en el tiempo las decisiones descritas en el marco teórico: la arquitectura local-first se implementó primero; la gamificación y las misiones se añadieron cuando el núcleo formativo era estable; los motores de guion permitieron escalar contenido sin reescribir la lógica de interacción. El producto final (APK 1.0.0) es la evidencia de cierre del proceso; las carpetas `prueba-*` y las pantallas `ver-db` conservan la traza de las iteraciones intermedias.
+
+Referencias técnicas: mismas URLs del marco teórico (React Native, Expo, SQLite, Metro, documentación de compilación Android en https://docs.expo.dev/build-reference/apk/ ).

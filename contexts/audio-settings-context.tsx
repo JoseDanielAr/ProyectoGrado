@@ -2,8 +2,24 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { getActiveUsuario } from '@/lib/db/usuario-repo'
 
+/** La música de fondo suena a este factor del valor configurado en Ajustes (p. ej. 100% → 5% real). */
+export const MUSIC_PLAYBACK_VOLUME_FACTOR = 0.05
+
+export function getPlaybackMusicVolume({
+  musicVolume,
+  isMusicTemporarilyMuted,
+}: {
+  musicVolume: number
+  isMusicTemporarilyMuted: boolean
+}) {
+  if (isMusicTemporarilyMuted) return 0
+  return musicVolume * MUSIC_PLAYBACK_VOLUME_FACTOR
+}
+
 interface AudioSettingsContextValue {
   musicVolume: number
+  /** Volumen real de reproducción de música de fondo (ajuste × factor 1/3). */
+  playbackMusicVolume: number
   setMusicVolume: (nextVolume: number) => void
   /** Silencio temporal para música en pantallas específicas (sin tocar ajustes globales). */
   isMusicTemporarilyMuted: boolean
@@ -63,16 +79,29 @@ export function AudioSettingsProvider({ children }: AudioSettingsProviderProps) 
     }
   }, [])
 
+  const playbackMusicVolume = getPlaybackMusicVolume({
+    musicVolume,
+    isMusicTemporarilyMuted,
+  })
+
   const value = useMemo(
     () => ({
       musicVolume,
+      playbackMusicVolume,
       setMusicVolume,
       isMusicTemporarilyMuted,
       setMusicTemporarilyMuted,
       sfxVolume,
       setSfxVolume,
     }),
-    [musicVolume, setMusicVolume, isMusicTemporarilyMuted, sfxVolume, setSfxVolume]
+    [
+      musicVolume,
+      playbackMusicVolume,
+      setMusicVolume,
+      isMusicTemporarilyMuted,
+      sfxVolume,
+      setSfxVolume,
+    ]
   )
 
   if (!isHydratedFromDb) return null

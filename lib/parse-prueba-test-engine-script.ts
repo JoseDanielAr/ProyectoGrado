@@ -49,7 +49,7 @@ export function parsePruebaTestEngineScript(source: string): ParsedPruebaTestEng
       continue
     }
 
-    const wrongMatch = line.match(/^(\d+)\.0\.(\d+)\.\s+(.+)$/)
+    const wrongMatch = line.match(/^(\d+)\.0\.(\d+)\.?\s+(.+)$/)
     if (wrongMatch) {
       const parent = Number(wrongMatch[1])
       const sub = Number(wrongMatch[2])
@@ -57,7 +57,7 @@ export function parsePruebaTestEngineScript(source: string): ParsedPruebaTestEng
       continue
     }
 
-    const rightMatch = line.match(/^(\d+)\.1\.(\d+)\.\s+(.+)$/)
+    const rightMatch = line.match(/^(\d+)\.1\.(\d+)\.?\s+(.+)$/)
     if (rightMatch) {
       const parent = Number(rightMatch[1])
       const sub = Number(rightMatch[2])

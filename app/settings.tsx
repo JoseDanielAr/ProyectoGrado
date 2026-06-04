@@ -5,6 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useAudioSettings } from '@/contexts/audio-settings-context'
+import { resetAllEstadoIdToNotCompleted } from '@/lib/db/progress-reset'
 import { getActiveUsuario, updateActiveUsuarioAudioConfig } from '@/lib/db/usuario-repo'
 
 const WHITE = '#FFFFFF'
@@ -17,6 +18,7 @@ export default function SettingsScreen() {
   const [draftSfxVolume, setDraftSfxVolume] = useState(sfxVolume)
   const originalVolumesRef = useRef({ music: musicVolume, sfx: sfxVolume })
   const wasSavedRef = useRef(false)
+  const [isResettingProgress, setIsResettingProgress] = useState(false)
 
   useFocusEffect(
     useCallback(() => {
@@ -59,6 +61,34 @@ export default function SettingsScreen() {
   function handleSfxSlider(next: number) {
     setDraftSfxVolume(next)
     setSfxVolume(next)
+  }
+
+  function handleReiniciarProgreso() {
+    if (isResettingProgress) return
+
+    Alert.alert(
+      'Reiniciar progreso',
+      'Se pondrán todos los estados de módulos, clases y quizzes en no completado. ¿Continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reiniciar',
+          style: 'destructive',
+          onPress: () => {
+            setIsResettingProgress(true)
+            void resetAllEstadoIdToNotCompleted()
+              .then(() => {
+                Alert.alert('Listo', 'Progreso reiniciado.')
+              })
+              .catch(error => {
+                console.warn('No se pudo reiniciar el progreso.', error)
+                Alert.alert('Error', 'No se pudo reiniciar el progreso.')
+              })
+              .finally(() => setIsResettingProgress(false))
+          },
+        },
+      ]
+    )
   }
 
   async function handleSave() {
@@ -139,6 +169,19 @@ export default function SettingsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Guardar ajustes de audio">
           <Text style={styles.saveButtonText}>Guardar</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={handleReiniciarProgreso}
+          disabled={isResettingProgress}
+          style={({ pressed }) => [
+            styles.resetButton,
+            isResettingProgress && styles.resetButtonDisabled,
+            pressed && !isResettingProgress && styles.resetButtonPressed,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Reiniciar progreso">
+          <Text style={styles.resetButtonText}>Reiniciar progreso</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -222,5 +265,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: 0.2,
+  },
+  resetButton: {
+    width: '100%',
+    minHeight: 52,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: BLUE,
+    backgroundColor: WHITE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resetButtonDisabled: {
+    opacity: 0.6,
+  },
+  resetButtonPressed: {
+    opacity: 0.85,
+  },
+  resetButtonText: {
+    color: BLUE,
+    fontSize: 17,
+    fontWeight: '700',
   },
 })

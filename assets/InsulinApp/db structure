@@ -1,0 +1,65 @@
+InsulinApp SQLite schema reference (insulinapp.db)
+Source of truth in code: lib/db/schema.ts, lib/db/seed.ts
+
+---
+Estado
+  EstadoID       INTEGER PK AUTOINCREMENT
+  NombreEstado   TEXT NOT NULL UNIQUE
+
+  Seed: 1 = No Completado, 2 = Completado
+
+---
+Usuario
+  UsuarioID   INTEGER PK AUTOINCREMENT
+  Racha       INTEGER NOT NULL
+  Puntaje     INTEGER NOT NULL
+  ConfMusica  INTEGER NOT NULL
+  ConfSFX     INTEGER NOT NULL
+  clave       TEXT NOT NULL DEFAULT 'n/a'
+
+---
+Modulo
+  ModuloID    INTEGER PK AUTOINCREMENT
+
+---
+Clase
+  ClaseID           INTEGER PK AUTOINCREMENT
+  ModuloID          INTEGER NOT NULL -> Modulo(ModuloID)
+  PuntajeDadoClase  INTEGER NOT NULL
+
+---
+Quiz
+  QuizID           INTEGER PK AUTOINCREMENT
+  ModuloID         INTEGER NOT NULL -> Modulo(ModuloID)
+  PuntajeDadoQuiz  INTEGER NOT NULL
+
+---
+UsuarioModulo  (progress per user per module)
+  UsuarioID   INTEGER NOT NULL -> Usuario
+  ModuloID    INTEGER NOT NULL -> Modulo
+  EstadoID    INTEGER NOT NULL -> Estado
+  PRIMARY KEY (UsuarioID, ModuloID)
+
+---
+UsuarioClase  (progress per user per class)
+  UsuarioID   INTEGER NOT NULL -> Usuario
+  ClaseID     INTEGER NOT NULL -> Clase
+  EstadoID    INTEGER NOT NULL -> Estado
+  PRIMARY KEY (UsuarioID, ClaseID)
+
+---
+UsuarioQuiz  (progress per user per quiz)
+  UsuarioID   INTEGER NOT NULL -> Usuario
+  QuizID      INTEGER NOT NULL -> Quiz
+  EstadoID    INTEGER NOT NULL -> Estado
+  Resultado   INTEGER NOT NULL  (e.g. score 8-10 when completed)
+  PRIMARY KEY (UsuarioID, QuizID)
+
+---
+Current seed layout (IDs may extend as you add content)
+
+  Modulo 0: Clase 0 (tutorial)
+  Modulo 1: Clases 1-4, Quiz 1
+  Modulo 2: Clases 5-8, Quiz 2
+
+  QuizID 0 was removed from the DB; use Quiz 1 for modulo 1 and Quiz 2 for modulo 2.

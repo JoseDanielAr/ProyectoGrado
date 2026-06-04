@@ -1,10 +1,11 @@
 import { Audio } from 'expo-av'
 import { Image } from 'expo-image'
-import TypeWriter from 'react-native-typewriter'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View, type ImageSourcePropType, type LayoutChangeEvent } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { renderInlineRichText } from '@/components/inline-rich-text'
+import { RichTypewriter } from '@/components/rich-typewriter'
 import { useAudioSettings } from '@/contexts/audio-settings-context'
 
 const WHITE = '#FFFFFF'
@@ -26,8 +27,15 @@ interface BoundingBoxEngineProps {
   boundingBoxPixels: BoundingBoxPixels
   insideResultText?: string
   outsideResultText?: string
+  /** Si true, no envuelve en SafeAreaView (p. ej. dentro del quiz). */
+  embedded?: boolean
+  /**
+   * Modo quiz: sin texto de feedback; tras el tap se notifica de inmediato
+   * (el padre reproduce SFX y avanza tras su propio delay).
+   */
+  autoAdvanceOnAnswer?: boolean
   /** Tras mostrar el feedback (bien/mal) y que el usuario pulse la caja de texto otra vez. */
-  onInteractionComplete?: () => void
+  onInteractionComplete?: (result: { isCorrect: boolean }) => void
 }
 
 export function BoundingBoxEngine({
@@ -38,6 +46,8 @@ export function BoundingBoxEngine({
   boundingBoxPixels,
   insideResultText = 'bien',
   outsideResultText = 'mal',
+  embedded = false,
+  autoAdvanceOnAnswer = false,
   onInteractionComplete,
 }: BoundingBoxEngineProps) {
   const { sfxVolume } = useAudioSettings()
@@ -104,6 +114,7 @@ export function BoundingBoxEngine({
   const [isFeedbackTyping, setIsFeedbackTyping] = useState(false)
   const [isResultLocked, setIsResultLocked] = useState(false)
   const [imageTapArea, setImageTapArea] = useState({ width: 0, height: 0 })
+  const lastTapWasInsideRef = useRef(false)
 
   function handleImageAreaLayout(event: LayoutChangeEvent) {
     // Guardamos dimensiones reales del area tocable para mapear taps.
@@ -129,18 +140,24 @@ export function BoundingBoxEngine({
       yPercent >= boundingBoxPercent.minYPercent &&
       yPercent <= boundingBoxPercent.maxYPercent
 
+    lastTapWasInsideRef.current = isInsideBoundingBox
+    setIsResultLocked(true)
+
+    if (autoAdvanceOnAnswer) {
+      onInteractionComplete?.({ isCorrect: isInsideBoundingBox })
+      return
+    }
+
     void playTapFeedbackSfx(isInsideBoundingBox)
 
     // Mostramos resultado en la caja de texto segun caiga dentro o fuera.
     setFeedbackText(isInsideBoundingBox ? insideResultText : outsideResultText)
     setIsFeedbackTyping(true)
     setIsTyping(false)
-    setIsResultLocked(true)
   }
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-      <View style={styles.screen}>
+  const screenContent = (
+      <View style={[styles.screen, embedded && styles.screenEmbedded]}>
         {/* Bloque superior: titulo + caja de texto */}
         <View style={styles.topSection}>
           <Text style={styles.title}>{title}</Text>
@@ -149,12 +166,13 @@ export function BoundingBoxEngine({
           <Pressable
             onPress={() => {
               if (isResultLocked) {
+                if (autoAdvanceOnAnswer) return
                 if (!feedbackText) return
                 if (isFeedbackTyping) {
                   setIsFeedbackTyping(false)
                   return
                 }
-                onInteractionComplete?.()
+                onInteractionComplete?.({ isCorrect: lastTapWasInsideRef.current })
                 return
               }
 
@@ -174,30 +192,30 @@ export function BoundingBoxEngine({
             <View style={styles.textContent}>
               {feedbackText ? (
                 isFeedbackTyping ? (
-                  <TypeWriter
+                  <RichTypewriter
                     key={`feedback-${feedbackText}`}
-                    style={styles.typeText}
-                    typing={1}
+                    text={feedbackText}
+                    typing={true}
                     minDelay={14}
                     maxDelay={28}
-                    onTypingEnd={() => setIsFeedbackTyping(false)}>
-                    {feedbackText}
-                  </TypeWriter>
+                    baseStyle={styles.typeText}
+                    onTypingEnd={() => setIsFeedbackTyping(false)}
+                  />
                 ) : (
-                  <Text style={styles.typeText}>{feedbackText}</Text>
+                  renderInlineRichText({ text: feedbackText, baseStyle: styles.typeText })
                 )
               ) : isTyping ? (
-                <TypeWriter
-                  key={stepIndex}
-                  style={styles.typeText}
-                  typing={1}
+                <RichTypewriter
+                  key={`step-${stepIndex}`}
+                  text={textSteps[stepIndex] ?? ''}
+                  typing={true}
                   minDelay={10}
                   maxDelay={22}
-                  onTypingEnd={() => setIsTyping(false)}>
-                  {textSteps[stepIndex] ?? ''}
-                </TypeWriter>
+                  baseStyle={styles.typeText}
+                  onTypingEnd={() => setIsTyping(false)}
+                />
               ) : (
-                <Text style={styles.typeText}>{textSteps[stepIndex] ?? ''}</Text>
+                renderInlineRichText({ text: textSteps[stepIndex] ?? '', baseStyle: styles.typeText })
               )}
             </View>
           </Pressable>
@@ -219,6 +237,13 @@ export function BoundingBoxEngine({
           </Pressable>
         </View>
       </View>
+  )
+
+  if (embedded) return <View style={styles.safeArea}>{screenContent}</View>
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      {screenContent}
     </SafeAreaView>
   )
 }
@@ -271,6 +296,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 20,
+  },
+  screenEmbedded: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   topSection: {
     flex: 3,

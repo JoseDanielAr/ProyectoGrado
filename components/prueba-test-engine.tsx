@@ -1,6 +1,5 @@
 import { Audio } from 'expo-av'
 import { Image } from 'expo-image'
-import TypeWriter from 'react-native-typewriter'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -11,6 +10,8 @@ import {
   type PruebaTextoImageCommand,
   resolveImageTarget,
 } from '@/components/prueba-texto-engine'
+import { renderInlineRichText } from '@/components/inline-rich-text'
+import { RichTypewriter } from '@/components/rich-typewriter'
 import { useAudioSettings } from '@/contexts/audio-settings-context'
 
 const WHITE = '#FFFFFF'
@@ -456,30 +457,33 @@ export function PruebaTestEngine({
             <View style={styles.textContent}>
               {outcomePhase !== 'none' ? (
                 outcomeIsTyping ? (
-                  <TypeWriter
+                  <RichTypewriter
                     key={`out-${outcomePhase}-${outcomeStepIndex}`}
-                    style={styles.typeText}
-                    typing={1}
+                    text={outcomeDisplayTexts[outcomeStepIndex] ?? ''}
+                    typing={true}
                     minDelay={10}
                     maxDelay={22}
-                    onTypingEnd={() => setOutcomeIsTyping(false)}>
-                    {outcomeDisplayTexts[outcomeStepIndex] ?? ''}
-                  </TypeWriter>
+                    baseStyle={styles.typeText}
+                    onTypingEnd={() => setOutcomeIsTyping(false)}
+                  />
                 ) : (
-                  <Text style={styles.typeText}>{outcomeDisplayTexts[outcomeStepIndex] ?? ''}</Text>
+                  renderInlineRichText({
+                    text: outcomeDisplayTexts[outcomeStepIndex] ?? '',
+                    baseStyle: styles.typeText,
+                  })
                 )
               ) : isTyping ? (
-                <TypeWriter
-                  key={stepIndex}
-                  style={styles.typeText}
-                  typing={1}
+                <RichTypewriter
+                  key={`main-${stepIndex}`}
+                  text={displayTexts[stepIndex] ?? ''}
+                  typing={true}
                   minDelay={10}
                   maxDelay={22}
-                  onTypingEnd={() => setIsTyping(false)}>
-                  {displayTexts[stepIndex] ?? ''}
-                </TypeWriter>
+                  baseStyle={styles.typeText}
+                  onTypingEnd={() => setIsTyping(false)}
+                />
               ) : (
-                <Text style={styles.typeText}>{displayTexts[stepIndex] ?? ''}</Text>
+                renderInlineRichText({ text: displayTexts[stepIndex] ?? '', baseStyle: styles.typeText })
               )}
             </View>
           </Pressable>

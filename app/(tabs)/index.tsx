@@ -3,17 +3,20 @@ import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native'
 
 import { useAudioSettings } from '@/contexts/audio-settings-context'
 import { useMenuButtonSfx } from '@/hooks/use-menu-button-sfx'
 import { getActiveUsuario } from '@/lib/db/usuario-repo'
+import { isTodayMissionCompleted, syncDailyMision } from '@/lib/misiones/misiones-repo'
 
 // Colores únicos de la pantalla: blanco para fondo y azul para acciones/interfaz.
 const WHITE = '#FFFFFF'
 const BLUE = '#0094ff'
 // Azul secundario reservado para elementos de apoyo visual.
 const BLUE_SECONDARY = '#1B78BA'
+const ORANGE = '#D97706'
+const ORANGE_SECONDARY = '#B45309'
 
 interface MenuButton {
   label: string
@@ -35,13 +38,13 @@ function PrimaryButton({ label, onPress }: MenuButton) {
 
 export default function HomeScreen() {
   const router = useRouter()
-  const { musicVolume, isMusicTemporarilyMuted } = useAudioSettings()
+  const { playbackMusicVolume } = useAudioSettings()
   const { playMenuButtonTap } = useMenuButtonSfx()
   const menuMusicRef = useRef<Audio.Sound | null>(null)
-  const effectiveMusicVolume = isMusicTemporarilyMuted ? 0 : musicVolume
 
   const [puntaje, setPuntaje] = useState(0)
   const [racha, setRacha] = useState(0)
+  const [isRachaHighlighted, setIsRachaHighlighted] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -54,7 +57,7 @@ export default function HomeScreen() {
           {
             isLooping: true,
             shouldPlay: true,
-            volume: effectiveMusicVolume,
+            volume: playbackMusicVolume,
           }
         )
 
@@ -84,8 +87,8 @@ export default function HomeScreen() {
   useEffect(() => {
     // Sincronizamos el volumen del audio actual con el valor global de ajustes.
     if (!menuMusicRef.current) return
-    menuMusicRef.current.setVolumeAsync(effectiveMusicVolume).catch(() => {})
-  }, [effectiveMusicVolume])
+    menuMusicRef.current.setVolumeAsync(playbackMusicVolume).catch(() => {})
+  }, [playbackMusicVolume])
 
   useFocusEffect(
     useCallback(() => {
@@ -93,10 +96,15 @@ export default function HomeScreen() {
 
       async function loadUserStats() {
         try {
-          const usuario = await getActiveUsuario()
+          await syncDailyMision()
+          const [usuario, missionCompletedToday] = await Promise.all([
+            getActiveUsuario(),
+            isTodayMissionCompleted(),
+          ])
           if (!isActive) return
           setPuntaje(usuario.Puntaje)
           setRacha(usuario.Racha)
+          setIsRachaHighlighted(missionCompletedToday)
         } catch (error) {
           console.warn('No se pudo leer el usuario activo.', error)
         }
@@ -109,11 +117,6 @@ export default function HomeScreen() {
     }, [])
   )
 
-  // Esta función mantiene los botones funcionales mientras creamos las rutas finales.
-  function showComingSoon(featureName: string) {
-    Alert.alert('Próximamente', `${featureName} estará disponible en una siguiente versión.`)
-  }
-
   // Cada acción del menú reproduce primero el SFX y luego ejecuta la acción real.
   function withMenuTap(action: () => void) {
     return () => {
@@ -123,10 +126,10 @@ export default function HomeScreen() {
   }
 
   const menuButtons: MenuButton[] = [
-    { label: 'Modulos', onPress: withMenuTap(() => showComingSoon('Modulos')) },
-    { label: 'Repaso', onPress: withMenuTap(() => showComingSoon('Repaso')) },
-    { label: 'Misiones Diarias', onPress: withMenuTap(() => showComingSoon('Misiones Diarias')) },
-    { label: 'Prueba', onPress: withMenuTap(() => router.push('/prueba')) },
+    { label: 'Modulos', onPress: withMenuTap(() => router.push('/modulos')) },
+    // Repaso y Misiones quedarán conectados cuando se definan sus pantallas.
+    { label: 'Repaso', onPress: withMenuTap(() => router.push('/repaso')) },
+    { label: 'Misiones Diarias', onPress: withMenuTap(() => router.push('/misiones')) },
     { label: 'Ajustes', onPress: withMenuTap(() => router.push('/settings')) },
   ]
 
@@ -155,9 +158,17 @@ export default function HomeScreen() {
             <Text style={styles.statTitle}>Puntaje</Text>
             <Text style={styles.statValue}>{puntaje}</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statTitle}>Racha</Text>
-            <Text style={styles.statValue}>{racha}</Text>
+          <View
+            style={[
+              styles.statCard,
+              isRachaHighlighted && styles.statCardRachaHighlight,
+            ]}>
+            <Text style={[styles.statTitle, isRachaHighlighted && styles.statTitleRachaHighlight]}>
+              Racha
+            </Text>
+            <Text style={[styles.statValue, isRachaHighlighted && styles.statValueRachaHighlight]}>
+              {racha}
+            </Text>
           </View>
         </View>
 
@@ -225,6 +236,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 4,
   },
+  statCardRachaHighlight: {
+    borderColor: ORANGE_SECONDARY,
+  },
+  statTitleRachaHighlight: {
+    color: ORANGE,
+  },
+  statValueRachaHighlight: {
+    color: ORANGE_SECONDARY,
+  },
   // Divisor gris fino entre tarjetas y acciones para mejorar jerarquía visual.
   separator: {
     width: '100%',
@@ -235,7 +255,7 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     width: '100%',
     marginTop: 16,
-    gap: 10,
+    gap: 20,
   },
   button: {
     width: '100%',
