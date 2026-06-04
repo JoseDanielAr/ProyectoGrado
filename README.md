@@ -14,6 +14,8 @@ Este aviso aparece en la app al abrir o reanudar la sesión, y debe leerse antes
 
 Prototipo educativo en React Native que demuestra una arquitectura de motores de lecciones modulares y reutilizables, impulsados por scripts de texto y persistencia local en SQLite. El contenido temático sobre diabetes es material de muestra para ejercitar los motores — **no es una aplicación médica**.
 
+Esta aplicacón es "InsulinApp.apk" dentro del repositorio.
+
 > **Contexto:** Proyecto de grado — Ingeniería de Sistemas
 
 ---
